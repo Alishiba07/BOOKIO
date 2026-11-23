@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" width="480" height="120">
+  <defs>
+    <linearGradient id="bookioRedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff4422"/>
+      <stop offset="100%" stop-color="#d61a00"/>
+    </linearGradient>
+    <filter id="subtleShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Clean background -->
+  <rect width="480" height="120" fill="#ffffff"/>
+
+  <!-- Stylized Open Book Emblem -->
+  <g transform="translate(16, 18)" filter="url(#subtleShadow)">
+    <!-- Left book cover / pages (Crimson Red) -->
+    <path d="M 6 74 Q 6 12 40 4 L 40 78 Q 20 82 6 74 Z" fill="url(#bookioRedGrad)"/>
+    <!-- Right book cover / pages (Deep Charcoal) -->
+    <path d="M 74 74 Q 74 12 40 4 L 40 78 Q 60 82 74 74 Z" fill="#181818"/>
+    <!-- Book spine -->
+    <rect x="38.5" y="3.5" width="3" height="75" fill="#3a3a3a" rx="1.5"/>
+    
+    <!-- Left page golden/white bookmark ribbon -->
+    <path d="M 39 4 L 39 36 L 31 28 L 23 36 L 23 7" fill="#ffffff" opacity="0.85"/>
+
+    <!-- Left subtle page lines -->
+    <line x1="12" y1="28" x2="23" y2="26" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
+    <line x1="12" y1="42" x2="33" y2="40" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
+    <line x1="12" y1="56" x2="33" y2="54" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
+
+    <!-- Right subtle page lines -->
+    <line x1="68" y1="28" x2="47" y2="26" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.4"/>
+    <line x1="68" y1="42" x2="47" y2="40" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.4"/>
+    <line x1="68" y1="56" x2="47" y2="54" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.4"/>
+  </g>
+
+  <!-- Wordmark: BOOKIO -->
+  <!-- "BOOK" in strong elegant serif font -->
+  <text
+    x="104"
+    y="66"
+    font-family="'Frank Ruhl Libre', 'Georgia', serif"
+    font-size="54"
+    font-weight="800"
+    letter-spacing="3"
+    fill="#111111"
+  >BOOK<tspan fill="#ff2a05">IO</tspan></text>
+
+  <!-- Small dot accent -->
+  <circle cx="376" cy="40" r="4" fill="#ff2a05"/>
+
+  <!-- Tagline: "A Little Store of Big Stories" - crisp, high-contrast, perfectly readable -->
+  <text
+    x="106"
+    y="95"
+    font-family="'Flamenco', 'Georgia', serif"
+    font-size="16"
+    font-weight="600"
+    letter-spacing="2.6"
+    fill="#2b2b2b"
+  >A Little Store of Big Stories</text>
+
+  <!-- Elegant accent line under the wordmark -->
+  <rect x="104" y="74" width="280" height="2" fill="#ff2a05" opacity="0.85" rx="1"/>
+</svg>

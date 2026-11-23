@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "AWS CloudFormation Template for BOOKIO MERN Stack Application (Ubuntu 22.04 LTS, Nginx, PM2, Node.js 20, MongoDB 7.0 Community Edition)"
+
+Parameters:
+  KeyName:
+    Description: "Name of an existing EC2 KeyPair to enable SSH access to the instance."
+    Type: "AWS::EC2::KeyPair::KeyName"
+    ConstraintDescription: "Must be the name of an existing EC2 KeyPair."
+
+  InstanceType:
+    Description: "EC2 instance type (t3.small or t3.medium recommended; t2.micro supported with automated 2GB swap space)."
+    Type: String
+    Default: "t3.small"
+    AllowedValues:
+      - "t2.micro"
+      - "t2.small"
+      - "t3.micro"
+      - "t3.small"
+      - "t3.medium"
+      - "t3.large"
+    ConstraintDescription: "Must be a valid EC2 instance type."
+
+  SSHLocation:
+    Description: "The IP address range that can be used to SSH into the EC2 instance."
+    Type: String
+    MinLength: "9"
+    MaxLength: "18"
+    Default: "0.0.0.0/0"
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x."
+
+  UbuntuAmiId:
+    Description: "Latest Ubuntu 22.04 LTS AMI ID resolved automatically via AWS Systems Manager Parameter Store."
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
+
+  GitRepoUrl:
+    Description: "GitHub repository URL for Bookio MERN project."
+    Type: String
+    Default: "https://github.com/Alishiba07/BOOKIO.git"
+
+  GitBranch:
+    Description: "Git branch to clone and deploy."
+    Type: String
+    Default: "main"
+
+Resources:
+  BookioSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security group for BOOKIO MERN stack server (SSH 22, HTTP 80, HTTPS 443)"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLocation
+          Description: "SSH Management Access"
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+          Description: "Public HTTP Web Traffic"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: "0.0.0.0/0"
+          Description: "Public HTTPS Web Traffic"
+      Tags:
+        - Key: Name
+          Value: "Bookio-SecurityGroup"
+
+  BookioEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      ImageId: !Ref UbuntuAmiId
+      SecurityGroupIds:
+        - !Ref BookioSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 20
+            VolumeType: "gp3"
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: "Bookio-Production-Server"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+          echo "=========================================="
+          echo "Starting Bookio Server Automated Provisioning"
+          echo "=========================================="
+
+          # 1. Setup 2GB Swap space (Prevents OOM during npm install/vite build on small instances)
+          if [ ! -f /swapfile ]; then
+            echo "Configuring 2GB swap file..."
+            fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            sysctl vm.swappiness=10
+            echo 'vm.swappiness=10' >> /etc/sysctl.conf
+          fi
+
+          # 2. System updates and base tools
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y ca-certificates curl gnupg git build-essential nginx ufw
+
+          # 3. Install Node.js 20 LTS (NodeSource)
+          echo "Installing Node.js 20 LTS..."
+          mkdir -p /etc/apt/keyrings
+          curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+          apt-get update -y
+          apt-get install -y nodejs
+
+          # 4. Install PM2 globally
+          echo "Installing PM2 globally..."
+          npm install -g pm2
+
+          # 5. Install MongoDB 7.0 Community Edition
+          echo "Installing MongoDB 7.0 Community Edition..."
+          curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+          apt-get update -y
+          apt-get install -y mongodb-org
+
+          # Start and enable MongoDB
+          systemctl daemon-reload
+          systemctl enable mongod
+          systemctl start mongod
+
+          # 6. Configure directories and permissions
+          mkdir -p /var/www/bookio
+          chown -R ubuntu:ubuntu /var/www/bookio
+
+          # 7. Clone repository as ubuntu user
+          echo "Cloning Bookio repository..."
+          sudo -u ubuntu git clone -b ${GitBranch} ${GitRepoUrl} /var/www/bookio
+
+          # 8. Run initial deployment script
+          cd /var/www/bookio
+          if [ -f "/var/www/bookio/infra/deploy.sh" ]; then
+            chmod +x /var/www/bookio/infra/deploy.sh
+            echo "Running deployment script..."
+            sudo -u ubuntu bash /var/www/bookio/infra/deploy.sh
+          fi
+
+          # 9. Configure PM2 systemd startup hook for user ubuntu
+          env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu
+          sudo -u ubuntu pm2 save
+
+          # 10. Enable UFW firewall rules
+          ufw allow 22/tcp
+          ufw allow 80/tcp
+          ufw allow 443/tcp
+          ufw --force enable
+
+          echo "=========================================="
+          echo "Bookio Server Setup Complete!"
+          echo "=========================================="
+
+Outputs:
+  InstanceId:
+    Description: "The Instance ID of the deployed Bookio EC2 server."
+    Value: !Ref BookioEC2Instance
+
+  PublicIP:
+    Description: "Public IPv4 address of the Bookio EC2 server."
+    Value: !GetAtt BookioEC2Instance.PublicIp
+
+  PublicDNS:
+    Description: "Public DNS name of the Bookio EC2 server."
+    Value: !GetAtt BookioEC2Instance.PublicDnsName
+
+  WebsiteURL:
+    Description: "Access your live Bookio MERN website here (Port 80 HTTP)."
+    Value: !Sub "http://${BookioEC2Instance.PublicIp}"
+
+  BackendApiURL:
+    Description: "Direct test endpoint for Backend API via Nginx reverse proxy."
+    Value: !Sub "http://${BookioEC2Instance.PublicIp}/api/books"
+
+  SSHCommand:
+    Description: "Command to SSH into your EC2 instance."
+    Value: !Sub "ssh -i /path/to/${KeyName}.pem ubuntu@${BookioEC2Instance.PublicIp}"

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -22,7 +23,26 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            echo "SSH connection established. Executing deployment script..."
+            echo "=========================================="
+            echo "🔗 SSH Connected to EC2 Server successfully!"
+            echo "=========================================="
+
+            # Ensure directory exists and permissions are correct
+            sudo mkdir -p /var/www/bookio
+            sudo chown -R ubuntu:ubuntu /var/www/bookio
+
+            # If repo doesn't exist, clone it; otherwise fetch and pull latest
+            if [ ! -d "/var/www/bookio/.git" ]; then
+              echo "Cloning fresh repository..."
+              git clone -b main https://github.com/Alishiba07/BOOKIO.git /var/www/bookio
+            else
+              echo "Fetching latest commit from origin/main..."
+              cd /var/www/bookio
+              git fetch --all
+              git reset --hard origin/main
+            fi
+
+            # Execute deployment script
             cd /var/www/bookio
             chmod +x infra/deploy.sh
             bash infra/deploy.sh

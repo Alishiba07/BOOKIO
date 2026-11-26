@@ -1,9 +1,12 @@
 // bookRoute.js — all book-related API routes
 import { Router } from "express";
-import { createBook, getAllBooks, getOneBook, updateBook, deleteBook } from "../controller/bookController.js";
+import { createBook, getAllBooks, getOneBook, updateBook, deleteBook, seedBooks } from "../controller/bookController.js";
 import isAuthenticated from "../middleware/isAuthenticated.js";
 
 const router = Router();
+
+// GET /api/books/seed — seed database route
+router.route("/seed").get(seedBooks);
 
 // POST /api/books (protected) and GET /api/books (public)
 router.route("/").post(isAuthenticated, createBook).get(getAllBooks);

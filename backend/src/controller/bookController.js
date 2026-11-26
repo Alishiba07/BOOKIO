@@ -1,5 +1,9 @@
 // bookController.js — handles create, read, update, delete for books
 import Book from "../schema/bookSchema.js";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const books = require("../../books.json");
 
 // POST /api/books — create a new book (protected)
 export const createBook = async (req, res) => {
@@ -15,6 +19,13 @@ export const createBook = async (req, res) => {
 // Optional filters: ?category=fiction  or  ?search=harry
 export const getAllBooks = async (req, res) => {
   try {
+    // Auto-seed books into MongoDB Atlas if the collection is currently empty
+    const totalCount = await Book.countDocuments();
+    if (totalCount === 0 && books && books.length > 0) {
+      console.log("Database empty. Auto-seeding 50+ books into MongoDB...");
+      await Book.insertMany(books);
+    }
+
     let filter = {};
 
     // filter by category if provided
@@ -32,6 +43,30 @@ export const getAllBooks = async (req, res) => {
     res.status(200).json({ success: true, message: "Books fetched successfully", result });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/books/seed — explicit route to seed or reset database
+export const seedBooks = async (req, res) => {
+  try {
+    const count = await Book.countDocuments();
+    if (count > 0 && req.query.force !== "true") {
+      return res.status(200).json({
+        success: true,
+        message: `Database already has ${count} books. Add ?force=true to reset and re-seed.`,
+        count
+      });
+    }
+
+    await Book.deleteMany({});
+    await Book.insertMany(books);
+    res.status(200).json({
+      success: true,
+      message: `Successfully seeded ${books.length} books into MongoDB!`,
+      count: books.length
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

@@ -1,9 +1,29 @@
 // bookController.js — handles create, read, update, delete for books
 import Book from "../schema/bookSchema.js";
-import { createRequire } from "module";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const require = createRequire(import.meta.url);
-const books = require("../../books.json");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load books.json safely across both local and Vercel serverless environments
+let books = [];
+try {
+  const possiblePaths = [
+    path.join(__dirname, "../../books.json"),
+    path.join(process.cwd(), "books.json"),
+    path.join(process.cwd(), "backend/books.json")
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      books = JSON.parse(fs.readFileSync(p, "utf-8"));
+      break;
+    }
+  }
+} catch (err) {
+  console.log("Could not load books.json:", err.message);
+}
 
 // POST /api/books — create a new book (protected)
 export const createBook = async (req, res) => {

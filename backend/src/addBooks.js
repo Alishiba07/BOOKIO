@@ -1,6 +1,6 @@
 // addBooks.js — EXTRA script to seed books into MongoDB
-// NOT required by the course — just saves typing during setup!
-// Run with: npm run addbooks
+import dns from "node:dns";
+dns.setServers(["8.8.8.8", "8.8.4.4"]); // Fix for querySrv ECONNREFUSED on local DNS/ISPs
 
 import mongoose from "mongoose";
 import { dbUrl } from "./constant.js";

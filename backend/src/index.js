@@ -15,7 +15,13 @@ app.use(cors());
 // middleware: parse JSON request bodies
 app.use(express.json());
 
-// test route — open http://localhost:8000/ to check if server is running
+// ensure DB is connected before handling any request (critical for serverless / Vercel)
+app.use(async (req, res, next) => {
+  await connectToDb();
+  next();
+});
+
+// test route — open / to check if server is running
 app.get("/", (req, res) => {
   res.json({ success: true, message: "BOOKIO API is running successfully!" });
 });
@@ -25,9 +31,13 @@ app.use("/api/users", userRoute);
 app.use("/api/books", bookRoute);
 app.use("/api/orders", orderRoute);
 
-// connect to MongoDB, then start listening
-connectToDb().then(() => {
-  app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+// If not running in a serverless environment (e.g. local or standalone server), start listening
+if (process.env.VERCEL !== "1") {
+  connectToDb().then(() => {
+    app.listen(port, () => {
+      console.log(`Server running on http://localhost:${port}`);
+    });
   });
-});
+}
+
+export default app;

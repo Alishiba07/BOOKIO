@@ -1,29 +1,6 @@
 // bookController.js — handles create, read, update, delete for books
 import Book from "../schema/bookSchema.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load books.json safely across both local and Vercel serverless environments
-let books = [];
-try {
-  const possiblePaths = [
-    path.join(__dirname, "../../books.json"),
-    path.join(process.cwd(), "books.json"),
-    path.join(process.cwd(), "backend/books.json")
-  ];
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
-      books = JSON.parse(fs.readFileSync(p, "utf-8"));
-      break;
-    }
-  }
-} catch (err) {
-  console.log("Could not load books.json:", err.message);
-}
+import { booksData } from "../booksData.js";
 
 // POST /api/books — create a new book (protected)
 export const createBook = async (req, res) => {
@@ -41,9 +18,9 @@ export const getAllBooks = async (req, res) => {
   try {
     // Auto-seed books into MongoDB Atlas if the collection is currently empty
     const totalCount = await Book.countDocuments();
-    if (totalCount === 0 && books && books.length > 0) {
-      console.log("Database empty. Auto-seeding 50+ books into MongoDB...");
-      await Book.insertMany(books);
+    if (totalCount === 0 && booksData && booksData.length > 0) {
+      console.log("Database empty. Auto-seeding 53 books into MongoDB...");
+      await Book.insertMany(booksData);
     }
 
     let filter = {};
@@ -60,30 +37,21 @@ export const getAllBooks = async (req, res) => {
     }
 
     const result = await Book.find(filter);
-    res.status(200).json({ success: true, message: "Books fetched successfully", result });
+    res.status(200).json({ success: true, message: "Books fetched successfully", count: result.length, result });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// GET /api/books/seed — explicit route to seed or reset database
+// GET /api/books/seed — explicit route to force seed or reset database
 export const seedBooks = async (req, res) => {
   try {
-    const count = await Book.countDocuments();
-    if (count > 0 && req.query.force !== "true") {
-      return res.status(200).json({
-        success: true,
-        message: `Database already has ${count} books. Add ?force=true to reset and re-seed.`,
-        count
-      });
-    }
-
     await Book.deleteMany({});
-    await Book.insertMany(books);
+    await Book.insertMany(booksData);
     res.status(200).json({
       success: true,
-      message: `Successfully seeded ${books.length} books into MongoDB!`,
-      count: books.length
+      message: `Successfully seeded ${booksData.length} books into MongoDB!`,
+      count: booksData.length
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
